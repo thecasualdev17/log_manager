@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:log_manager/log_manager.dart';
+import 'package:log_manager/src/core/log_manager.dart';
 import 'package:log_manager/src/shared/log_printer.dart';
 
 abstract class ZoneSpecs {
@@ -14,8 +14,8 @@ abstract class ZoneSpecs {
         // Override print to handle log messages
         LogPrinter.print(message, delegate: parent, zone: zone, pretty: prettyPrint);
         if (logToFile) {
-          if (LogManager.getLogManagerIO() != null && LogManager.getLogManagerIO()!.isInitialized()) {
-            LogManager.getLogManagerIO()?.writeToFile(message);
+          if (LogManager.getLogManagerIO() != null) {
+            LogManager.getLogManagerIO()?.createLog(message);
           }
         }
       },

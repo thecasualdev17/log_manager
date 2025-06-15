@@ -4,10 +4,12 @@ class Options {
     this.logToFile = false,
     this.encryptLogs = false,
     this.prettyPrint = true,
+    this.writeLogsToDownloadsDirectory = true,
   });
 
   final bool preventCrashes;
   final bool logToFile;
   final bool encryptLogs;
   final bool prettyPrint;
+  final bool writeLogsToDownloadsDirectory;
 }

@@ -1,3 +1,7 @@
-export 'src/functions/log_manager.dart';
-export 'src/shared/log_level.dart';
-export 'src/shared/options.dart';
+export 'src/core/log_manager.dart';
+export 'src/shared/enums/log_formats.dart';
+export 'src/shared/enums/log_groups.dart';
+export 'src/shared/models/log_level.dart';
+export 'src/shared/models/options.dart';
+export 'src/shared/models/retention_policy.dart';
+export 'src/shared/models/retention_policy_callbacks.dart';

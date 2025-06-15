@@ -1,52 +1,108 @@
-import 'package:log_manager/src/io/file_writer/file_writer.dart';
+import 'package:log_manager/log_manager.dart';
+import 'package:path_provider/path_provider.dart';
 
-import '../../log_manager.dart';
+import 'file_manager/file_manager.dart';
 
 class LogManagerIO {
-  LogManagerIO({this.rootPath, this.fileName = 'app', this.fileExtension = '.log'});
+  LogManagerIO({
+    this.writeToDownloadsDirectory = false,
+    this.fileExtension = 'log',
+    this.logFormat = LogFormats.plainText,
+    this.logGroup = LogGroups.daily,
+    this.maxFileSize = 2 * 1024 * 1024, // 2 MB
+  }) {
+    init();
+  }
 
-  final String? rootPath;
-  final String fileName;
+  final bool writeToDownloadsDirectory;
   final String fileExtension;
-  bool _isInitialized = false;
-  late FileWriter _fileWriter;
+  final LogFormats logFormat;
+  final LogGroups logGroup;
+  final int maxFileSize;
+  String? _rootPath;
+  FileManager _fileManager = FileManager();
 
-  void init() {
-    if (_isInitialized) return;
+  Future<void> init() async {
+    if (writeToDownloadsDirectory) {
+      _rootPath = (await getDownloadsDirectory())?.path;
+    } else {
+      _rootPath = (await getApplicationDocumentsDirectory()).path;
+    }
 
-    // Initialize the file writer
-    _fileWriter = FileWriter();
-    _fileWriter.init(rootPath: rootPath, fileName: fileName, fileExtension: fileExtension);
-    _isInitialized = true;
+    _fileManager = FileManager();
+    _fileManager.initialize(
+      logDirectory: '$_rootPath/logs',
+      archiveDirectory: '$_rootPath/archive',
+      extension: fileExtension,
+    );
   }
 
-  bool isInitialized() {
-    return _isInitialized;
-  }
-
-  Future<void> writeToFile(
-    String message, {
+  Future<void> createLog(
+    String logMessage, {
     LogLevel logLevel = LogLevel.INFO,
-    String identifier = 'log_manager',
     StackTrace? stacktrace,
   }) async {
-    if (!_isInitialized) {
-      throw Exception('LogManagerIO is not initialized. Call init() before writing to file.');
-    }
-    String combinedMessage = '${logLevel.name} | $identifier | $message';
-    if (stacktrace != null) {
-      combinedMessage += '\nStackTrace: ${stacktrace.toString()}';
-    }
-    await _fileWriter.writeFile(combinedMessage);
-
-    if (LogManager.getOnLogCreated() != null) {
-      LogManager.getOnLogCreated()?.call(combinedMessage);
+    String baseFileName = getBaseFileName();
+    if (await _fileManager.logFileExists(fileName: baseFileName)) {
+      final fileSize = await _fileManager.getFileSize(fileName: baseFileName);
+      if (fileSize >= maxFileSize) {
+        await _fileManager.archiveLogFile(fileName: baseFileName);
+      } else {
+        await _fileManager.appendToLogFile(
+          fileName: baseFileName,
+          content: createLogContent(logMessage, logLevel: logLevel, stacktrace: stacktrace),
+        );
+      }
+    } else {
+      await _fileManager.createLogFile(fileName: baseFileName);
+      await createLog(
+        logMessage,
+        logLevel: logLevel,
+        stacktrace: stacktrace,
+      );
     }
   }
 
-  Future<void> dispose() async {
-    if (!_isInitialized) return;
-    await _fileWriter.close();
-    _isInitialized = false;
+  String createLogContent(
+    String message, {
+    LogLevel logLevel = LogLevel.INFO,
+    StackTrace? stacktrace,
+  }) {
+    final now = DateTime.now();
+    final timestamp = '${now.toIso8601String()} | ';
+
+    String combinedMessage = addTimeStampOnEveryNewLine('${logLevel.name} | $message', timestamp);
+    if (stacktrace != null) {
+      combinedMessage += '\n${addTimeStampOnEveryNewLine(stacktrace.toString(), timestamp)}';
+    }
+    return '$combinedMessage\n';
+  }
+
+  String addTimeStampOnEveryNewLine(String content, String timestamp) {
+    return content.split('\n').map((line) => '$timestamp$line').join('\n');
+  }
+
+  String getBaseFileName() {
+    final now = DateTime.now();
+    String baseFileName = '${now.year}${now.month}';
+    switch (logGroup) {
+      case LogGroups.daily:
+        baseFileName += '${now.day}';
+        break;
+      case LogGroups.everyTwoDays:
+        baseFileName += '${(now.day ~/ 2) + 1}';
+        break;
+      case LogGroups.everyThreeDays:
+        baseFileName += '${(now.day ~/ 3) + 1}';
+        break;
+      case LogGroups.weekly:
+        baseFileName += '${(now.day ~/ 8) + 1}';
+      case LogGroups.biWeekly:
+        baseFileName += '${(now.day ~/ 16) + 1}';
+        break;
+      case LogGroups.monthly:
+        break;
+    }
+    return baseFileName;
   }
 }

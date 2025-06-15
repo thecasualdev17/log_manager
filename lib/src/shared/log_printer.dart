@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+/// Prints log messages to the console
+/// Doesn't write to file, [LogManagerIO] can be used for that purpose.
 abstract class LogPrinter {
   static void print(String message, {String? label, ZoneDelegate? delegate, Zone? zone, bool pretty = false}) {
     if (pretty) {
